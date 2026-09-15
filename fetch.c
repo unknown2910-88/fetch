@@ -885,6 +885,7 @@ enum {
   F_DISK,
   F_IP,
   F_BATTERY,
+  F_POWERPROFILE,
   F_LOCALE,
   F_COLORS,
   F_COUNT
@@ -951,6 +952,7 @@ static const struct {
                  {"disk", F_DISK},
                  {"ip", F_IP},
                  {"battery", F_BATTERY},
+                 {"powerprofile", F_POWERPROFILE},
                  {"locale", F_LOCALE},
                  {"colors", F_COLORS},
                  {NULL, 0}};
@@ -3051,6 +3053,41 @@ static void gather_battery(void) {
 #endif
 }
 
+static void gather_powerprofile(void) {
+#ifndef __APPLE__
+  char profile[64] = "";
+
+  // Kernel ACPI platform profile: simplest source, just a file read.
+  // Typical values: "power saver", "balanced", "performance".
+  if (!try_read_first_line("/sys/firmware/acpi/platform_profile", profile,
+                           sizeof(profile))) {
+    // Fall back to power-profiles-daemon, common across desktop distros.
+    FILE *fp = popen("powerprofilesctl get 2>/dev/null", "r");
+    if (fp) {
+      if (fgets(profile, sizeof(profile), fp)) {
+        int len = strlen(profile);
+        while (len > 0 && (profile[len - 1] == '\n' || profile[len - 1] == '\r'))
+          profile[--len] = '\0';
+      }
+      pclose(fp);
+    }
+  }
+
+  if (!profile[0])
+    return;
+
+  // Title-case the first letter and swap hyphens for spaces, so
+  // "power saver" reads as "Power saver" instead of the raw kernel value.
+  if (profile[0] >= 'a' && profile[0] <= 'z')
+    profile[0] -= 32;
+  for (char *p = profile; *p; p++)
+    if (*p == '-')
+      *p = ' ';
+
+  add_info("Power Profile", "%s", profile);
+#endif
+}
+
 static void gather_terminal(void) {
   char term[64] = "";
   // Try TERM_PROGRAM first, then walk up the process tree
@@ -4065,7 +4102,8 @@ int main(int argc, char **argv) {
           "  Available fields:\n"
           "    os, host, kernel, uptime, packages, shell, display, wm,\n"
           "    displaymanager, theme, icons, font, cursor, terminal, cpu,\n"
-          "    gpu, memory, swap, disk, ip, battery, locale, colors\n\n"
+          "    gpu, memory, swap, disk, ip, battery, powerprofile, locale,\n"
+          "    colors\n\n"
           "  Separators and custom fields:\n"
           "    ---                      Blank line separator\n"
           "    custom_Label=value       Static field (e.g. custom_Pronouns=he/him)\n\n"
@@ -4270,6 +4308,7 @@ int main(int argc, char **argv) {
       [F_DISK] = gather_disk,
       [F_IP] = gather_ip,
       [F_BATTERY] = gather_battery,
+      [F_POWERPROFILE] = gather_powerprofile,
       [F_LOCALE] = gather_locale,
       [F_COLORS] = NULL,
   };

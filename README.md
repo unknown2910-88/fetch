@@ -194,6 +194,7 @@ All system info is gathered natively. No fastfetch or neofetch needed:
 - **Memory/Swap** - `/proc/meminfo` (Linux), `vm_stat` (macOS)
 - **Disk** - `statvfs()` + `/proc/mounts` (Linux), `getmntinfo` (macOS) – supports multiple mount points via config
 - **Battery** - `energy_now/energy_full` plus `model_name` (Linux), IOKit (macOS)
+- **Power Profile** - `/sys/firmware/acpi/platform_profile`, fallback `powerprofilesctl get 2>/dev/null` (Linux)
 - **Local IP** - `getifaddrs()`
 
 Stats like memory, battery, and uptime update in real-time while the logo spins.
@@ -228,6 +229,7 @@ swap
 disk
 ip
 battery
+powerprofile
 locale
 colors
 
